@@ -77,20 +77,118 @@
 - Next.js API Routes
 
 ### AI
-- OpenRouter API
-- LLM: `meta-llama/llama-3.1-8b-instruct`
+- OpenRouter API  
+- 模型：meta-llama/llama-3.1-8b-instruct
 
 ---
 
 ## 🧠 系统架构（核心）
-
-```text
 用户输入 → JD分析 → 结构化结果
-                ↓
-        注入对话上下文（Context）
-                ↓
-        Chat API（Agent逻辑控制）
-                ↓
-        AI输出（评分 / 面试 / 总结）
-                ↓
-        前端解析 + UI 渲染
+↓
+注入对话上下文（Context）
+↓
+Chat API（Agent逻辑控制）
+↓
+AI输出（评分 / 面试 / 总结）
+↓
+前端解析 + UI 渲染
+
+
+---
+
+## 📦 项目结构
+src/
+├── app/
+│ ├── page.tsx # 主页面（JD + Chat UI）
+│ ├── api/
+│ │ ├── analyze/route.ts # JD分析接口
+│ │ └── chat/route.ts # AI Agent对话接口
+
+
+---
+
+## ⚙️ 本地运行
+🔑 环境变量
+在项目根目录下创建“.env.local” 文件，内容如下：
+OPENROUTER_API_KEY=your_api_key
+
+```bash
+npm install
+npm run dev
+
+打开浏览器：
+http://localhost:3000
+访问网站
+
+
+---
+
+📘 使用教程（教学）
+1️⃣ 输入岗位 JD
+在左侧输入 Job Description，例如：
+负责 React/Next.js 前端开发，熟悉 TypeScript，组件化开发，性能优化...
+点击 开始分析
+
+2️⃣ 查看分析结果
+系统会自动生成：
+岗位关键词
+匹配度评分
+差距分析
+简历优化建议
+面试问题
+
+3️⃣ 开启 AI 面试
+在右侧输入：
+请模拟一轮前端实习生面试
+AI 将进入面试官模式
+
+4️⃣ 回答问题
+例如：
+我认为 React 的 state 是组件内部状态...
+
+5️⃣ 获取评分与反馈
+AI 会返回：
+优点
+不足
+评分
+改进建议
+示例回答
+
+6️⃣ 多轮对话（核心）
+继续提问：
+我没有实习经历怎么办？
+AI 会结合上下文调整策略
+
+7️⃣ 生成总结报告
+点击“总结报告”按钮
+得到：
+综合评价
+优势
+待提升点
+下一步建议
+
+🎯 项目定位
+
+该项目不仅是一个工具，更是一个：
+具备面试流程控制能力的 AI Agent
+
+📊 与普通 ChatBot 对比
+能力	     普通 ChatGPT	    本项目
+上下文理解	      ✔         	✔✔✔
+面试流程控制	    ❌	         ✔
+评分系统	        ❌	         ✔
+总结报告	        ❌	         ✔
+UI结构化输出	    ❌	         ✔
+
+📈 后续优化方向
+支持上传简历（PDF解析）
+引入 RAG（向量检索）
+在线部署（Vercel）
+用户系统
+面试数据分析
+
+👨‍💻 作者
+个人 AI Agent 项目
+
+⭐ Star
+如果你觉得这个项目不错，欢迎点个 Star ⭐，谢谢各位靓仔靓女，帅哥美女，祝各位财源滚滚，八方来财，大吉大利，就业大吉！！！
