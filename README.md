@@ -1,36 +1,191 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 AI Resume Interview Agent
 
-## Getting Started
+一个基于大模型的 **AI 面试准备助手（AI Agent）**，支持从岗位 JD 分析到多轮模拟面试、实时评分与总结报告，帮助求职者系统化提升面试能力。
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## ✨ 项目亮点
+
+- 🤖 **AI Agent 架构**
+  - 基于 JD + 分析结果 + 对话上下文进行推理
+  - 非简单问答，而是具备“面试流程控制能力”的智能体
+
+- 🧠 **上下文记忆（Context Injection）**
+  - 自动注入：
+    - 岗位 JD
+    - 结构化分析结果
+    - 历史对话
+  - 实现更真实的面试交互
+
+- 🎯 **面试官模式（核心能力）**
+  - AI 作为面试官：
+    - 连续提问
+    - 针对回答评分
+    - 动态调整问题
+
+- 📊 **结构化评分系统**
+  - 多维度评估：
+    - 表达清晰度
+    - 岗位匹配度
+    - 内容完整度
+    - 逻辑结构
+  - 自动生成改进建议 + 参考回答
+
+- 📄 **面试总结报告**
+  - 自动生成完整复盘：
+    - 总体评价
+    - 优势与短板
+    - 优先提升能力
+    - 下一轮建议
+
+- 💾 **对话持久化**
+  - 使用 localStorage
+  - 刷新页面不丢数据
+
+---
+
+## 🖼️ 功能展示
+
+### 1️⃣ JD 分析
+- 提取岗位关键词
+- 生成匹配度
+- 差距分析
+- 面试问题生成
+
+### 2️⃣ AI 面试对话
+- 多轮对话
+- 上下文理解
+- 面试模拟
+
+### 3️⃣ 评分卡片
+- 自动解析 AI 输出
+- 可视化评分 UI
+
+### 4️⃣ 总结报告
+- 一键生成完整面试复盘
+
+---
+
+## 🛠 技术栈
+
+### Frontend
+- Next.js (App Router)
+- TypeScript
+- Tailwind CSS
+
+### Backend
+- Next.js API Routes
+
+### AI
+- OpenRouter API
+- 模型：`meta-llama/llama-3.1-8b-instruct`
+- 煮啵还是学生，有钱了再换好点的模型，大家可以自行更改模型
+
+---
+
+## 🧠 系统架构（核心）
+
+```text
+用户输入 → JD分析 → 结构化结果
+                ↓
+        注入对话上下文（Context）
+                ↓
+        Chat API（Agent逻辑控制）
+                ↓
+        AI输出（评分 / 面试 / 总结）
+                ↓
+        前端解析 + UI 渲染
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📦 项目结构
+```
+src/
+├── app/
+│   ├── page.tsx              # 主页面（JD + Chat UI）
+│   ├── api/
+│   │   ├── analyze/route.ts  # JD分析接口
+│   │   └── chat/route.ts     # AI Agent对话接口
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ⚙️ 本地运行
+🔑 环境变量
+在项目根目录创建 .env.local：
+```
+OPENROUTER_API_KEY=your_api_key
+```
 
-## Learn More
+🚀 启动项目
+```
+npm install
+npm run dev
+```
+打开浏览器访问
+http://localhost:3000
 
-To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📘 使用教程（教学）
+- 1️⃣ 输入岗位 JD
+- 在左侧输入 Job Description，例如：
+- 负责 React/Next.js 前端开发，熟悉 TypeScript，组件化开发，性能优化...
+- 点击 开始分析。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- 2️⃣ 查看分析结果
+- 系统会自动生成：
+- 岗位关键词
+- 匹配度评分
+- 差距分析
+- 简历优化建议
+- 面试问题
 
-## Deploy on Vercel
+- 3️⃣ 开启 AI 面试
+- 点击“开启面试官模式”，再点击“开始模拟面试”
+- AI 将进入面试官模式。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- 4️⃣ 回答问题
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 5️⃣ 获取评分与反馈
+- AI 会返回：
+- 优点
+- 不足
+- 评分
+- 改进建议
+- 示例回答
+
+- 6️⃣ 多轮对话（核心）
+- 继续提问：
+- 我没有实习经历怎么办？
+- AI 会结合上下文调整策略。
+
+- 7️⃣ 生成总结报告
+- 点击 生成总结报告 按钮，得到：
+- 综合评价
+- 优势
+- 待提升点
+- 下一步建议
+
+## 🎯 项目定位
+- 该项目不仅是一个工具，更是一个：
+- 具备面试流程控制能力的 AI Agent
+
+## 📊 与普通 ChatBot 对比
+```
+能力	            普通 ChatGPT	        本项目
+上下文理解	             ✔	               ✔✔✔
+面试流程控制	           ❌	                 ✔
+评分系统	               ❌	                 ✔
+总结报告	               ❌	                 ✔
+UI 结构化输出	         ❌	                 ✔
+```
+## 📈 后续优化方向
+- 支持上传简历（PDF 解析）
+- 引入 RAG（向量检索）
+- 在线部署（Vercel）
+- 用户系统
+- 面试数据分析
+
+## 👨‍💻 作者
+- 个人 AI Agent 项目。
+
+
+
