@@ -94,9 +94,10 @@
         AI输出（评分 / 面试 / 总结）
                 ↓
         前端解析 + UI 渲染
-
+```
 
 ## 📦 项目结构
+```
 src/
 ├── app/
 │   ├── page.tsx              # 主页面（JD + Chat UI）
@@ -104,7 +105,7 @@ src/
 │   │   ├── analyze/route.ts  # JD分析接口
 │   │   └── chat/route.ts     # AI Agent对话接口
 
-
+```
 
 ## ⚙️ 本地运行
 🔑 环境变量
