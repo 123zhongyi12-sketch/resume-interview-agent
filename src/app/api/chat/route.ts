@@ -1,197 +1,125 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL =
+  process.env.OPENROUTER_MODEL || "meta-llama/llama-3.1-8b-instruct";
+
 type ChatMessage = {
-  role: "system" | "user" | "assistant";
+  role: "user" | "assistant";
   content: string;
 };
 
-type InterviewQuestion = {
-  question?: string;
-  intent?: string;
-  answerHint?: string;
-};
-
-type AnalysisResult = {
-  jobKeywords?: string[];
-  matchScore?: number;
-  gapAnalysis?: string[];
-  improvedBullets?: string[];
-  interviewQuestions?: InterviewQuestion[];
-};
-
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-
-    const messages = body.messages as ChatMessage[] | undefined;
-    const jobDescription = body.jobDescription as string | undefined;
-    const analysisResult = body.analysisResult as AnalysisResult | undefined;
-    const interviewerMode = Boolean(body.interviewerMode);
-    const summaryMode = Boolean(body.summaryMode);
-
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json(
-        { error: "messages 不能为空" },
-        { status: 400 }
-      );
-    }
-
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    const modelName =
-      process.env.OPENROUTER_MODEL || "meta-llama/llama-3.1-8b-instruct";
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "服务端缺少 OPENROUTER_API_KEY" },
-        { status: 500 }
-      );
-    }
-
-    const contextParts: string[] = [];
-
-    if (jobDescription?.trim()) {
-      contextParts.push(
-        `
-【当前岗位 JD】
+function buildSystemPrompt({
+  jobDescription,
+  analysisResult,
+  interviewerMode,
+  summaryMode,
+  uploadedText,
+  uploadedFileName,
+}: {
+  jobDescription?: string;
+  analysisResult?: unknown;
+  interviewerMode?: boolean;
+  summaryMode?: boolean;
+  uploadedText?: string;
+  uploadedFileName?: string;
+}) {
+  const jdSection = jobDescription?.trim()
+    ? `
+【岗位 JD】
 ${jobDescription.trim()}
-        `.trim()
-      );
-    }
-
-    if (analysisResult) {
-      const keywords =
-        analysisResult.jobKeywords && analysisResult.jobKeywords.length > 0
-          ? analysisResult.jobKeywords.join("、")
-          : "暂无";
-
-      const matchScore =
-        typeof analysisResult.matchScore === "number"
-          ? `${analysisResult.matchScore}/100`
-          : "暂无";
-
-      const gapAnalysis =
-        analysisResult.gapAnalysis && analysisResult.gapAnalysis.length > 0
-          ? analysisResult.gapAnalysis
-              .map((item, index) => `${index + 1}. ${item}`)
-              .join("\n")
-          : "暂无";
-
-      const improvedBullets =
-        analysisResult.improvedBullets &&
-        analysisResult.improvedBullets.length > 0
-          ? analysisResult.improvedBullets
-              .map((item, index) => `${index + 1}. ${item}`)
-              .join("\n")
-          : "暂无";
-
-      const interviewQuestions =
-        analysisResult.interviewQuestions &&
-        analysisResult.interviewQuestions.length > 0
-          ? analysisResult.interviewQuestions
-              .map(
-                (item, index) =>
-                  `${index + 1}. 问题：${item.question || ""}\n   考察意图：${
-                    item.intent || ""
-                  }\n   回答提示：${item.answerHint || ""}`
-              )
-              .join("\n")
-          : "暂无";
-
-      contextParts.push(
-        `
-【候选人分析结果】
-岗位关键词：${keywords}
-匹配度：${matchScore}
-
-差距分析：
-${gapAnalysis}
-
-优化后的简历要点：
-${improvedBullets}
-
-已有面试问题：
-${interviewQuestions}
-        `.trim()
-      );
-    }
-
-    const contextBlock =
-      contextParts.length > 0
-        ? `
-
-你当前必须结合下面的上下文进行回答，不要忽略：
-
-${contextParts.join("\n\n")}
 `
-        : "";
+    : `
+【岗位 JD】
+未提供
+`;
 
-    const summaryModeInstruction = summaryMode
-      ? `
-你当前处于“面试总结报告模式”，必须遵守以下规则：
-
-1. 你不是继续聊天，也不是继续提问，而是基于已有对话生成一份完整总结报告。
-2. 你必须结合：
-   - 当前岗位 JD
-   - 分析结果
-   - 整段面试对话历史
-3. 总结报告必须尽量按下面结构输出：
-
-【面试总结报告】
-总体评价：...
-综合得分：X/10
-
-【表现亮点】
-- ...
-- ...
-- ...
-
-【主要问题】
-- ...
-- ...
-- ...
-
-【最该优先补的能力】
-- ...
-- ...
-- ...
-
-【后续改进建议】
-- ...
-- ...
-- ...
-
-【下一轮建议】
-...
-
-4. 不要继续出题。
-5. 不要重复整段对话。
-6. 总结要像真实面试复盘，简洁、专业、可执行。
-7. 综合得分要真实，不要默认高分。
+  const analysisSection = analysisResult
+    ? `
+【岗位分析结果】
+${JSON.stringify(analysisResult, null, 2)}
 `
-      : "";
+    : `
+【岗位分析结果】
+未提供
+`;
 
-    const interviewModeInstruction =
-      interviewerMode && !summaryMode
-        ? `
-你当前处于“面试官模式”，必须严格遵守以下规则：
+  const uploadedFileSection = uploadedText?.trim()
+    ? `
+【上传文件补充上下文】
+文件名：${uploadedFileName || "unknown"}
 
-【面试流程规则】
-1. 你不是普通聊天助手，而是在主持一场模拟面试。
-2. 一次只问一个问题，不要一次给很多题。
-3. 如果用户说“开始面试”“继续下一题”之类的话，你应该直接进入下一题。
-4. 如果用户刚回答完一道题，你要优先进行评分和点评，而不是直接开启新话题。
-5. 问题必须尽量贴合当前岗位 JD 和分析结果。
-6. 语气要像真实面试官，专业、简洁、有节奏。
+以下内容来自用户上传的文件解析结果，可能是简历、项目材料、作品集、证书、报告或截图识别文本。
+你应把它当作重要背景信息，用于：
+- 提高岗位匹配判断准确度
+- 生成更贴近候选人经历的追问
+- 给出更真实的回答优化建议
+- 输出更具体的评分与总结
+禁止编造文件中不存在的经历或数据。
 
-【评分规则】
-当你判断用户是在“回答一道面试题”时，你必须给出结构化评分，格式尽量严格按下面输出：
+${uploadedText.trim()}
+`
+    : `
+【上传文件补充上下文】
+未提供
+`;
+
+  const baseRules = `
+你是一个中文 AI 面试助手 / AI Interview Coach。
+
+你的核心任务：
+1. 结合岗位 JD、岗位分析结果、上传文件内容、以及对话历史，为用户提供高质量面试辅导。
+2. 可以执行自由问答、回答优化、模拟面试、追问、评分、总结报告。
+3. 回复要专业、自然、具体，适合真实求职场景。
+4. 优先使用中文输出，除非用户明确要求英文。
+5. 不要输出空泛套话，尽量结合上下文给出针对性建议。
+6. 如果用户的问题明显是在回答面试题，请优先进行点评和评分，再决定是否追问。
+`;
+
+  const interviewerRules = interviewerMode
+    ? `
+【当前模式：面试官模式】
+你现在处于“动态面试官模式”。
+
+必须遵守以下规则：
+1. 一次只问一个问题。
+2. 不要一次列多个问题。
+3. 不要说“预设问题已经问完了”“固定题库问完了”之类的话。
+4. 问题数量不设上限，可以根据用户回答持续追问。
+5. 追问必须基于：
+   - 岗位 JD
+   - 岗位分析结果
+   - 上传文件内容
+   - 用户历史回答
+6. 除非用户明确要求“结束”“停止”“生成总结”“做总结”，否则不要主动结束面试。
+7. 问题应尽量像真实面试官，关注：
+   - 项目细节
+   - 技术深度
+   - 业务理解
+   - 指标与结果
+   - 取舍与复盘
+   - 岗位匹配度
+8. 如果用户刚回答完一道题，你应优先判断：
+   - 是否要先点评评分
+   - 是否要就回答内容继续追问
+   - 是否切换到下一个更合理的问题
+`
+    : `
+【当前模式：普通辅导模式】
+你可以自由回答用户问题、优化表达、解释面试题，也可以在用户要求时模拟面试。
+`;
+
+  const scoreRules = `
+【当用户像是在“回答面试题”时】
+如果用户发送的是一段回答、项目阐述、自我介绍、案例说明、行为题回答，或者明显是在回答你的面试问题，
+你应优先输出结构化评分卡，格式必须尽量兼容下面结构：
 
 【评分】
-总分：X/10
-表达清晰度：X/10
-岗位匹配度：X/10
-内容完整度：X/10
-逻辑结构：X/10
+总分：xx/100
+表达清晰度：xx/25
+岗位匹配度：xx/25
+内容完整度：xx/25
+逻辑结构：xx/25
 
 【回答优点】
 - ...
@@ -209,87 +137,164 @@ ${contextParts.join("\n\n")}
 ...
 
 【下一步】
-用一句话说明是继续追问，还是进入下一题。
+...
 
-【额外要求】
-1. 分数要真实，不要默认高分。
-2. 如果回答比较空泛，可以给 4-6 分。
-3. 如果回答不错但不够贴岗位，可以给 6-8 分。
-4. 如果回答结构清晰、细节充分、贴合岗位，再给 8-9 分。
-5. 一般不要轻易给 10 分。
-6. “参考回答”要适合大学生/实习生身份，不要编造多年工作经历。
-7. 如果用户明确不是在回答题目，而是在咨询策略、问方法、问怎么说，可以不打分，改为正常辅导回答。
-`
-        : `
-你当前处于普通对话模式，可以正常进行面试辅导、回答优化和自由问答。
+要求：
+1. 尽量保留这些标题名，不要乱改。
+2. 可以在评分卡之后追加一句自然衔接的话，但不要破坏格式。
+3. 参考回答要尽量贴近用户真实背景，不要编造太多不存在的经历。
 `;
 
-    const systemPrompt: ChatMessage = {
-      role: "system",
-      content: `
-你是一个专业的中文 AI 面试准备助手，帮助大学生和求职者进行：
-1. 简历优化
-2. JD 岗位要求理解
-3. 面试问题准备
-4. 回答修改与提升
-5. 模拟面试
-6. 面试复盘总结
+  const summaryRules = summaryMode
+    ? `
+【当前任务：生成面试总结报告】
+用户现在明确要求你生成总结报告。
 
-你的回答要求：
-- 默认使用中文
-- 表达清晰、专业、鼓励式
-- 适合校招生 / 实习生 / 缺少实习经历的同学
-- 回答尽量结构化，便于用户直接用于面试准备
-- 如果已经提供了岗位 JD 和分析结果，你必须优先围绕该岗位要求进行回答，不要泛泛而谈
-- 你的目标不是普通聊天，而是帮助用户完成“针对目标岗位的面试准备”
+你必须输出以下结构，标题尽量保持一致：
 
-${summaryModeInstruction}
+【面试总结报告】
+总体评价：...
+综合得分：.../100
 
-${interviewModeInstruction}
+【表现亮点】
+- ...
+- ...
 
-${contextBlock}
-      `.trim(),
+【主要问题】
+- ...
+- ...
+
+【最该优先补的能力】
+- ...
+- ...
+
+【后续改进建议】
+- ...
+- ...
+
+【下一轮建议】
+...
+
+要求：
+1. 输出要兼容前端解析。
+2. 总结必须基于本轮完整对话、岗位 JD、分析结果、上传文件内容。
+3. 不要再继续追问问题。
+4. 不要输出与总结无关的长篇铺垫。
+`
+    : `
+【当前任务】
+如果用户没有要求总结，就不要主动输出总结报告格式。
+`;
+
+  return `
+${baseRules}
+
+${jdSection}
+
+${analysisSection}
+
+${uploadedFileSection}
+
+${interviewerRules}
+
+${scoreRules}
+
+${summaryRules}
+`;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    if (!OPENROUTER_API_KEY) {
+      return NextResponse.json(
+        { error: "Missing OPENROUTER_API_KEY" },
+        { status: 500 }
+      );
+    }
+
+    const body = await req.json();
+
+    const {
+      messages,
+      jobDescription,
+      analysisResult,
+      interviewerMode,
+      summaryMode,
+      uploadedText,
+      uploadedFileName,
+    } = body as {
+      messages?: ChatMessage[];
+      jobDescription?: string;
+      analysisResult?: unknown;
+      interviewerMode?: boolean;
+      summaryMode?: boolean;
+      uploadedText?: string;
+      uploadedFileName?: string;
     };
 
-    const finalMessages: ChatMessage[] = [systemPrompt, ...messages];
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json(
+        { error: "messages is required" },
+        { status: 400 }
+      );
+    }
 
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
+    const systemPrompt = buildSystemPrompt({
+      jobDescription,
+      analysisResult,
+      interviewerMode,
+      summaryMode,
+      uploadedText,
+      uploadedFileName,
+    });
+
+    const formattedMessages = [
       {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: modelName,
-          messages: finalMessages,
-          temperature: 0.5,
-        }),
-      }
-    );
+        role: "system",
+        content: systemPrompt,
+      },
+      ...messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+    ];
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OPENROUTER_MODEL,
+        messages: formattedMessages,
+        temperature: summaryMode ? 0.4 : 0.7,
+      }),
+    });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("OpenRouter Chat API Error:", data);
+      console.error("chat route error:", data);
       return NextResponse.json(
         {
-          error: data?.error?.message || "OpenRouter 调用失败",
-          details: data,
+          error:
+            data?.error?.message ||
+            data?.message ||
+            "OpenRouter request failed",
         },
         { status: response.status }
       );
     }
 
     const reply =
-      data?.choices?.[0]?.message?.content?.trim() || "模型没有返回内容";
+      data?.choices?.[0]?.message?.content?.trim() || "模型没有返回内容。";
 
     return NextResponse.json({ reply });
   } catch (error) {
-    console.error("Chat API Error:", error);
+    console.error("chat route exception:", error);
     return NextResponse.json(
-      { error: "服务器内部错误" },
+      { error: "对话请求失败，请检查服务是否正常。" },
       { status: 500 }
     );
   }

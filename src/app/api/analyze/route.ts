@@ -75,10 +75,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const jobDescription = body.jobDescription as string | undefined;
+    const uploadedText = body.uploadedText as string | undefined;
+    const uploadedFileName = body.uploadedFileName as string | undefined;
 
-    if (!jobDescription || !jobDescription.trim()) {
+    const hasJobDescription = Boolean(jobDescription?.trim());
+    const hasUploadedText = Boolean(uploadedText?.trim());
+
+    if (!hasJobDescription && !hasUploadedText) {
       return NextResponse.json(
-        { error: "jobDescription 不能为空" },
+        { error: "jobDescription 和上传文件内容不能同时为空" },
         { status: 400 }
       );
     }
@@ -94,6 +99,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const userContentParts: string[] = [];
+
+    if (hasJobDescription) {
+      userContentParts.push(
+        `
+【岗位 JD】
+${jobDescription?.trim()}
+        `.trim()
+      );
+    }
+
+    if (hasUploadedText) {
+      userContentParts.push(
+        `
+【用户上传文件内容】
+文件名：${uploadedFileName || "unknown"}
+
+以下内容来自用户上传的文件，可能是简历、项目说明、作品集、证书、成绩单或其他辅助材料。
+请把它作为岗位匹配分析的重要依据之一。
+
+${uploadedText?.trim()}
+        `.trim()
+      );
+    }
+
     const messages = [
       {
         role: "system",
@@ -101,7 +131,7 @@ export async function POST(req: NextRequest) {
 你是一个专业的中文求职分析助手，专门帮助大学生、校招生和实习生分析岗位 JD，并输出结构化结果。
 
 你的任务：
-根据用户输入的岗位 JD，返回严格 JSON，字段如下：
+根据用户输入的岗位 JD，以及用户上传文件中提取出的内容，返回严格 JSON，字段如下：
 
 {
   "jobKeywords": ["关键词1", "关键词2"],
@@ -126,11 +156,17 @@ export async function POST(req: NextRequest) {
 6. improvedBullets：输出 3-5 条更适合该岗位的简历 bullet。
 7. interviewQuestions：输出 3-5 道贴合岗位的面试题，每题包含 question / intent / answerHint。
 8. 输出内容要适合学生/实习生，不要假设用户有多年工作经验。
+9. 如果同时提供了 JD 和上传文件内容，要综合分析；如果只提供了其中一个，也要尽力输出有价值结果。
+10. 不要编造上传文件中不存在的经历。
         `.trim(),
       },
       {
         role: "user",
-        content: `请分析下面这个岗位 JD：\n\n${jobDescription.trim()}`,
+        content: `
+请分析以下内容，并严格返回 JSON：
+
+${userContentParts.join("\n\n")}
+        `.trim(),
       },
     ];
 
@@ -163,17 +199,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rawText =
-      data?.choices?.[0]?.message?.content?.trim() || "{}";
-
+    const rawText = data?.choices?.[0]?.message?.content?.trim() || "{}";
     const result = safeParseAnalyzeResult(rawText);
 
     return NextResponse.json(result);
   } catch (error) {
     console.error("Analyze API Error:", error);
-    return NextResponse.json(
-      { error: "服务器内部错误" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
   }
 }
